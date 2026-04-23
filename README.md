@@ -225,8 +225,6 @@ model_path = hf_hub_download(
 
 ## 📄 License
 
-## 📄 License
-
 This project is licensed under the **GNU AGPL-3.0 License** in compliance 
 with the YOLOv8 framework by Ultralytics. This means you are free to use, 
 modify, and deploy this software commercially as long as the source code 
