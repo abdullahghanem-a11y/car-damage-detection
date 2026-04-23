@@ -1,0 +1,52 @@
+# ── Python ────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Environment ───────────────────────────────
+.env
+.venv
+venv/
+env/
+ENV/
+
+# ── Dataset (too large for GitHub) ────────────
+data/images/
+data/labels/
+data/annotations/
+
+# ── Model Weights (too large for GitHub) ──────
+runs/
+*.pt
+*.pth
+*.onnx
+*.engine
+
+# ── Jupyter Notebooks Checkpoints ─────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── OS Files ──────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ───────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Logs ──────────────────────────────────────
+*.log
+logs/
+
+# ── Visualizations Output ─────────────────────
+runs/visualizations/

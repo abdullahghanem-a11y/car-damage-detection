@@ -1,0 +1,21 @@
+# CarDD Dataset Configuration
+# Path is relative to this yaml file location
+# Place this file in the project root: cardd_project/
+
+path: ./data
+
+train: images/train
+val:   images/val
+test:  images/test
+
+# Number of classes
+nc: 6
+
+# Class names (must match annotation category order)
+names:
+  0: dent
+  1: scratch
+  2: crack
+  3: glass_shatter
+  4: lamp_broken
+  5: tire_flat

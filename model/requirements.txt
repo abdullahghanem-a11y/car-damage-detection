@@ -1,0 +1,31 @@
+# ── Car Damage Detection Project ──────────────
+# Python 3.10
+# Install: pip install -r requirements.txt
+#
+# NOTE: PyTorch must be installed separately with the correct CUDA version:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# ── Core Deep Learning ────────────────────────
+torch==2.5.1
+torchvision==0.20.1
+torchaudio==2.5.1
+
+# ── YOLOv8 ────────────────────────────────────
+ultralytics==8.0.196
+
+# ── Computer Vision ───────────────────────────
+opencv-python==4.8.1.78
+
+# ── Data Processing ───────────────────────────
+numpy==1.24.4
+pandas==2.0.3
+Pillow==10.0.1
+
+# ── Visualization ─────────────────────────────
+matplotlib==3.7.3
+seaborn==0.12.2
+
+# ── Utilities ─────────────────────────────────
+tqdm==4.66.1
+PyYAML==6.0.1
+python-dotenv==1.0.0
