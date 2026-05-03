@@ -15,7 +15,8 @@ MODEL_CACHE_DIR= os.getenv("MODEL_CACHE_DIR","./weights")
 CONF_THRESHOLD = float(os.getenv("CONF_THRESHOLD", 0.25))
 IOU_THRESHOLD  = float(os.getenv("IOU_THRESHOLD",  0.45))
 IMG_SIZE       = int(os.getenv("IMG_SIZE",         640))
-DEVICE         = int(os.getenv("DEVICE",             0))
+_device_env = os.getenv("DEVICE", "0")
+DEVICE = "cpu" if _device_env == "cpu" else int(_device_env)
 
 CLASS_NAMES = [
     "dent", "scratch", "crack",

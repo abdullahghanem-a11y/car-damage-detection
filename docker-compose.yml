@@ -1,0 +1,68 @@
+version: "3.9"
+
+services:
+
+  # ── PostgreSQL Database ──────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: cardd_db
+    environment:
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB:       cardd
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout:  5s
+      retries:  5
+
+  # ── FastAPI Backend ───────────────────────────
+  backend:
+    build:
+      context:    ./backend
+      dockerfile: Dockerfile
+    container_name: cardd_backend
+    environment:
+      DATABASE_URL:      postgresql://postgres:${DB_PASSWORD}@db:5432/cardd
+      HF_REPO_ID:        ${HF_REPO_ID}
+      MODEL_VERSION:     ${MODEL_VERSION}
+      MODEL_CACHE_DIR:   ./weights
+      CONF_THRESHOLD:    ${CONF_THRESHOLD}
+      IOU_THRESHOLD:     ${IOU_THRESHOLD}
+      IMG_SIZE:          ${IMG_SIZE}
+      DEVICE:            cpu
+      UPLOAD_DIR:        ./uploads
+      MAX_FILE_SIZE_MB:  ${MAX_FILE_SIZE_MB}
+      ALLOWED_EXTENSIONS: ${ALLOWED_EXTENSIONS}
+      HF_HUB_DISABLE_SYMLINKS_WARNING: 1
+    volumes:
+      - backend_weights:/app/weights
+      - backend_uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── React Frontend ────────────────────────────
+  frontend:
+    build:
+      context:    ./frontend
+      dockerfile: Dockerfile
+    container_name: cardd_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+# ── Volumes ───────────────────────────────────
+volumes:
+  postgres_data:
+  backend_weights:
+  backend_uploads:
