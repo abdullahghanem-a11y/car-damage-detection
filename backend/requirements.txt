@@ -1,0 +1,28 @@
+# ── Car Damage Detection — Backend ───────────
+# Python 3.10
+# Install: pip install -r requirements.txt
+#
+# NOTE: PyTorch must be installed separately:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# ── API ───────────────────────────────────────
+fastapi==0.136.1
+uvicorn==0.46.0
+python-multipart==0.0.27
+
+# ── Database ──────────────────────────────────
+sqlalchemy==2.0.49
+psycopg2-binary==2.9.12
+
+# ── ML / Model ────────────────────────────────
+huggingface_hub==1.11.0
+ultralytics==8.0.196
+torch==2.5.1
+torchvision==0.20.1
+
+# ── Computer Vision ───────────────────────────
+opencv-python==4.8.1.78
+numpy==1.24.4
+
+# ── Utilities ─────────────────────────────────
+python-dotenv==1.2.2
