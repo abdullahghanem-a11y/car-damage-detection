@@ -1,0 +1,321 @@
+{
+  "info": {
+    "name": "Car Damage Detection API",
+    "description": "API collection for the Car Damage Detection system.\n\nVariables:\n- base_url: API base URL\n- detection_id: Auto-updated by Get All Detections\n- skip: Pagination offset\n- limit: Records per page",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string",
+      "description": "API base URL — change to production URL when deploying"
+    },
+    {
+      "key": "detection_id",
+      "value": "1",
+      "type": "string",
+      "description": "Auto-updated by Get All Detections test script"
+    },
+    {
+      "key": "skip",
+      "value": "0",
+      "type": "string",
+      "description": "Pagination offset — 0 for page 1, 20 for page 2, 40 for page 3..."
+    },
+    {
+      "key": "limit",
+      "value": "20",
+      "type": "string",
+      "description": "Number of records per page"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('API is healthy', () => {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.status).to.eql('healthy');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check if the API is running and healthy."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n    \"status\": \"healthy\",\n    \"version\": \"1.0.0\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Detection",
+      "item": [
+        {
+          "name": "Detect Damage — Single Image",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Has results', () => {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.total_images).to.eql(1);",
+                  "    pm.expect(res.results).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": [],
+                  "description": "Upload a single car image (jpg, jpeg, png). Max size: 10MB."
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/detect/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "detect", ""]
+            },
+            "description": "Upload a single car image to detect damage.\n\nReturns:\n- Total instances detected\n- Per-detection: class name, confidence score, bounding box\n- Annotated image as base64 string"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n    \"total_images\": 1,\n    \"total_instances\": 4,\n    \"results\": [\n        {\n            \"filename\": \"car.jpg\",\n            \"total_instances\": 4,\n            \"detections\": [\n                {\n                    \"class_id\": 0,\n                    \"class_name\": \"dent\",\n                    \"confidence\": 0.8825,\n                    \"bbox\": [134.01, 135.27, 607.53, 251.57]\n                }\n            ],\n            \"annotated_image\": \"/9j/4AAQ...(base64)\"\n        }\n    ]\n}"
+            },
+            {
+              "name": "400 — Invalid File Type",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n    \"detail\": \"File type .pdf not allowed. Allowed: ['jpg', 'jpeg', 'png']\"\n}"
+            },
+            {
+              "name": "400 — File Too Large",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n    \"detail\": \"car.jpg exceeds 10MB limit\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Detect Damage — Batch Images",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('All images processed', () => {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.results.length).to.eql(res.total_images);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": [],
+                  "description": "First image"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": [],
+                  "description": "Second image"
+                },
+                {
+                  "key": "files",
+                  "type": "file",
+                  "src": [],
+                  "description": "Third image (add more as needed, max 10)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/detect/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "detect", ""]
+            },
+            "description": "Upload multiple car images (up to 10) in a single request.\nAll detections are saved to the database."
+          },
+          "response": [
+            {
+              "name": "200 OK — Batch",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n    \"total_images\": 3,\n    \"total_instances\": 9,\n    \"results\": [\n        {\"filename\": \"car1.jpg\", \"total_instances\": 4, \"detections\": [...], \"annotated_image\": \"...\"},\n        {\"filename\": \"car2.jpg\", \"total_instances\": 2, \"detections\": [...], \"annotated_image\": \"...\"},\n        {\"filename\": \"car3.jpg\", \"total_instances\": 3, \"detections\": [...], \"annotated_image\": \"...\"}\n    ]\n}"
+            },
+            {
+              "name": "400 — Too Many Files",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n    \"detail\": \"Maximum 10 images per request\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "History",
+      "item": [
+        {
+          "name": "Get All Detections",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Auto-update detection_id to the latest record",
+                  "const res = pm.response.json();",
+                  "if (res.length > 0) {",
+                  "    pm.collectionVariables.set('detection_id', res[0].id);",
+                  "    console.log('detection_id auto-set to:', res[0].id);",
+                  "}",
+                  "",
+                  "pm.test('Returns array', () => {",
+                  "    pm.expect(res).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/detect/history?skip={{skip}}&limit={{limit}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "detect", "history"],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "{{skip}}",
+                  "description": "Change collection variable 'skip' to paginate: 0=page1, 20=page2, 40=page3..."
+                },
+                {
+                  "key": "limit",
+                  "value": "{{limit}}",
+                  "description": "Change collection variable 'limit' to set page size"
+                }
+              ]
+            },
+            "description": "Retrieve detection history with pagination.\n\nTo paginate:\n- Page 1: skip=0,  limit=20\n- Page 2: skip=20, limit=20\n- Page 3: skip=40, limit=20\n\nUpdate the 'skip' and 'limit' collection variables to navigate pages.\n\nAlso auto-updates the 'detection_id' variable to the latest record ID."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n    {\n        \"id\": 1,\n        \"image_filename\": \"car.jpg\",\n        \"total_instances\": 4,\n        \"results\": [...],\n        \"model_version\": \"v1.0/best.pt\",\n        \"created_at\": \"2026-05-03T19:39:58.767472+03:00\"\n    }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get Detection By ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Correct ID returned', () => {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.id).to.eql(",
+                  "        parseInt(pm.collectionVariables.get('detection_id'))",
+                  "    );",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/detect/history/{{detection_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "detect", "history", "{{detection_id}}"]
+            },
+            "description": "Retrieve a single detection by ID.\n\nThe 'detection_id' variable is auto-updated when you run 'Get All Detections'.\nYou can also manually set it in the collection variables."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n    \"id\": 1,\n    \"image_filename\": \"car.jpg\",\n    \"total_instances\": 4,\n    \"results\": [...],\n    \"model_version\": \"v1.0/best.pt\",\n    \"created_at\": \"2026-05-03T19:39:58.767472+03:00\"\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "body": "{\n    \"detail\": \"Detection not found\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
