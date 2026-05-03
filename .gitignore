@@ -17,19 +17,29 @@ venv/
 env/
 ENV/
 
-# ── Dataset (too large for GitHub) ────────────
-data/images/
-data/labels/
-data/annotations/
+# ── Model — Dataset (too large for GitHub) ────
+model/data/images/
+model/data/labels/
+model/data/annotations/
 
-# ── Model Weights (too large for GitHub) ──────
-runs/
+# ── Model — Weights (too large for GitHub) ────
+model/runs/
 *.pt
 *.pth
 *.onnx
 *.engine
 
-# ── Jupyter Notebooks Checkpoints ─────────────
+# ── Backend — Sensitive ───────────────────────
+backend/.env
+backend/weights/
+backend/uploads/
+
+# ── Backend — Database ────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Jupyter Notebooks ─────────────────────────
 .ipynb_checkpoints/
 *.ipynb
 
@@ -49,4 +59,10 @@ desktop.ini
 logs/
 
 # ── Visualizations Output ─────────────────────
-runs/visualizations/
+model/runs/visualizations/
+
+# ── Frontend (added later) ────────────────────
+frontend/node_modules/
+frontend/.env
+frontend/dist/
+frontend/build/
