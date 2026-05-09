@@ -7,7 +7,7 @@ import os
 from app.database import get_db
 from app.models.detection import Detection
 from app.schemas.detection import BatchDetectionResponse, DetectionResponse
-from app.services.yolo_service import run_inference
+from app.services.yolo_service import run_batch_inference
 
 # ── Load .env ─────────────────────────────────
 load_dotenv()
@@ -35,7 +35,10 @@ async def detect_damage(
 ):
     """
     Detect car damage in one or more uploaded images.
-    Returns annotated images with bounding boxes and detection details.
+    - Verifies each image contains a car
+    - Groups images of the same car together
+    - Returns severity scores per detection
+    - Aggregates multi-angle results per car
     """
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded")
@@ -43,12 +46,10 @@ async def detect_damage(
     if len(files) > 10:
         raise HTTPException(status_code=400, detail="Maximum 10 images per request")
 
-    all_results     = []
-    total_instances = 0
-
+    # Read all files
+    images_data = []
     for file in files:
         validate_file(file)
-
         image_bytes = await file.read()
 
         size_mb = len(image_bytes) / (1024 * 1024)
@@ -58,27 +59,46 @@ async def detect_damage(
                 detail      = f"{file.filename} exceeds {MAX_FILE_SIZE_MB}MB limit"
             )
 
-        result = run_inference(image_bytes, file.filename)
+        images_data.append({
+            "filename": file.filename,
+            "bytes":    image_bytes
+        })
 
+    # Run full pipeline
+    batch_result = run_batch_inference(images_data)
+
+    # Save each verified detection to database
+    for group in batch_result["car_groups"]:
+        for img_result in group["images"]:
+            detection = Detection(
+                image_filename   = img_result["filename"],
+                image_path       = f"uploads/{img_result['filename']}",
+                results          = img_result["detections"],
+                total_instances  = img_result["total_instances"],
+                model_version    = MODEL_VERSION,
+                verified         = 1 if img_result["verified"] else 0,
+                vehicle_type     = img_result.get("vehicle_type"),
+                overall_severity = img_result.get("overall_severity", {}).get("label")
+            )
+            db.add(detection)
+
+    # Save rejected images to database too
+    for rejected in batch_result["rejected_images"]:
         detection = Detection(
-            image_filename  = file.filename,
-            image_path      = f"uploads/{file.filename}",
-            results         = result["detections"],
-            total_instances = result["total_instances"],
-            model_version   = MODEL_VERSION
+            image_filename   = rejected["filename"],
+            image_path       = f"uploads/{rejected['filename']}",
+            results          = [],
+            total_instances  = 0,
+            model_version    = MODEL_VERSION,
+            verified         = 0,
+            vehicle_type     = None,
+            overall_severity = "Rejected"
         )
         db.add(detection)
-        db.commit()
-        db.refresh(detection)
 
-        all_results.append(result)
-        total_instances += result["total_instances"]
+    db.commit()
 
-    return BatchDetectionResponse(
-        total_images    = len(files),
-        total_instances = total_instances,
-        results         = all_results
-    )
+    return batch_result
 
 
 @router.get("/history", response_model=List[DetectionResponse])
@@ -87,7 +107,7 @@ def get_history(
     limit: int     = 20,
     db:    Session = Depends(get_db)
 ):
-    """Get history of all past detections."""
+    """Get detection history with pagination."""
     detections = db.query(Detection)\
                    .order_by(Detection.created_at.desc())\
                    .offset(skip)\
