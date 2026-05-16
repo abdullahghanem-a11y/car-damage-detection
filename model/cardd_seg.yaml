@@ -1,0 +1,16 @@
+# CarDD Dataset Configuration — Segmentation
+# Update 'path' to point to your local dataset directory
+
+path: C:\path\to\your\cardd_project\data
+train: images/train
+val:   images/val
+test:  images/test
+
+nc: 6
+names:
+  0: dent
+  1: scratch
+  2: crack
+  3: glass_shatter
+  4: lamp_broken
+  5: tire_flat
