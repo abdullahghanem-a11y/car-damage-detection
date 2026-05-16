@@ -1,81 +1,38 @@
 # 🚗 Car Damage Detection System
 
-A full-stack AI-powered car damage detection system built with **YOLOv8**, **FastAPI**, **PostgreSQL**, **React**, and **Docker**. Upload car images to automatically detect and classify six types of damage in real time.
+A vision-based car damage detection and instance segmentation system built with **YOLOv8s-seg** and fine-tuned on the **CarDD dataset**. The system automatically localizes, classifies, and segments six types of car damage from images — beating the original benchmark paper's best model on every individual damage class.
 
-> 📦 **Model weights:** [abdullahg7/cardd-yolov8s](https://huggingface.co/abdullahg7/cardd-yolov8s)  
-> 🔬 **Dataset:** [CarDD — IEEE T-ITS 2023](https://cardd-ustc.github.io)
+> 📦 **Model weights hosted on HuggingFace:** [abdullahg7/cardd-yolov8s](https://huggingface.co/abdullahg7/cardd-yolov8s)
 
 ---
 
 ## 📋 Table of Contents
-- [System Architecture](#system-architecture)
-- [Quick Start with Docker](#quick-start-with-docker)
+
+- [Overview](#overview)
 - [Results](#results)
+- [Features](#features)
 - [Dataset](#dataset)
 - [Project Structure](#project-structure)
-- [Manual Setup](#manual-setup)
-- [API Reference](#api-reference)
-- [Roadmap](#roadmap)
-- [References](#references)
-- [License](#license)
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+- [Docker Deployment](#docker-deployment)
 
 ---
 
-## 🏗️ System Architecture
+## 🔍 Overview
 
-```
-┌─────────────────────────────────────────┐
-│         React Frontend (Nginx)           │
-│         http://localhost:80              │
-│  - Drag & drop image upload              │
-│  - Annotated result display              │
-│  - Detection history with pagination     │
-└──────────────────┬──────────────────────┘
-                   │ HTTP REST API
-┌──────────────────▼──────────────────────┐
-│         FastAPI Backend                  │
-│         http://localhost:8000            │
-│  - Batch image processing (up to 10)     │
-│  - YOLOv8 inference service              │
-│  - Auto-downloads model from HuggingFace │
-└──────────────────┬──────────────────────┘
-                   │ SQLAlchemy ORM
-┌──────────────────▼──────────────────────┐
-│         PostgreSQL Database              │
-│  - Stores detection results as JSON      │
-│  - Tracks model version per detection    │
-└─────────────────────────────────────────┘
-```
+This project fine-tunes a pre-trained **YOLOv8s-seg** model on the CarDD dataset for real-world car damage detection and instance segmentation. It is deployed as a full-stack dockerized application with a FastAPI backend, PostgreSQL database, and React frontend.
 
----
+**Detected Damage Categories:**
 
-## 🚀 Quick Start with Docker
-
-The entire system runs with a single command.
-
-**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/abdullahghanem-a11y/car-damage-detection.git
-cd car-damage-detection
-
-# 2. Configure environment
-cp .env.example .env
-# Edit .env and set your DB_PASSWORD
-
-# 3. Run everything
-docker-compose up --build
-```
-
-Open **http://localhost:80** — done! 🎉
-
-> 💡 On first run, the model (~22.5MB) is automatically downloaded from HuggingFace and cached locally.
-
-**To stop:**
-```bash
-docker-compose down
-```
+| Class | Description |
+|---|---|
+| 🔴 Dent | Surface deformation on car body |
+| 🔵 Scratch | Linear paint damage |
+| 🟢 Crack | Structural fractures |
+| 🟣 Glass Shatter | Broken windows or windshields |
+| 🟡 Lamp Broken | Damaged headlights or tail lights |
+| 🟠 Tire Flat | Deflated or damaged tires |
 
 ---
 
@@ -83,44 +40,79 @@ docker-compose down
 
 ### Overall Performance (Test Set)
 
-| Metric | Score |
-|---|---|
-| mAP@0.5 | **71.67%** |
-| mAP@0.5:0.95 | **55.43%** |
-| Precision | 75.11% |
-| Recall | 67.52% |
-| Inference Speed | 7.7ms / image |
-| Model Size | 22.5 MB |
-| Training Time | ~1 hour (RTX 3050 4GB) |
-
-### Per-Class Performance
-
-| Class | mAP50 | Difficulty |
+| Metric | Box | Mask |
 |---|---|---|
-| 🟣 Glass Shatter | 99.0% | Easy |
-| 🟠 Tire Flat | 90.5% | Easy |
-| 🟡 Lamp Broken | 85.5% | Easy |
-| 🔵 Scratch | 59.6% | Hard |
-| 🔴 Dent | 57.8% | Hard |
-| 🟢 Crack | 37.7% | Hard |
+| mAP@0.5 | **75.84%** | **75.90%** |
+| mAP@0.5:0.95 | **58.93%** | **57.00%** |
+| Precision | 76.84% | 77.40% |
+| Recall | 68.27% | 68.70% |
+| Inference Speed | 61ms / image |  |
+| Model Size | 22.5 MB |  |
+| Training Time | ~3 hours (RTX 3050) |  |
 
-### Benchmark Comparison
+### Per-Class Performance (Box mAP50 / Mask mAP50)
+
+| Class | Box mAP50 | Mask mAP50 |
+|---|---|---|
+| Glass Shatter | 97.9% | 97.9% |
+| Tire Flat | 91.0% | 90.2% |
+| Lamp Broken | 86.8% | 88.2% |
+| Scratch | 63.2% | 60.4% |
+| Dent | 60.6% | 64.9% |
+| Crack | 55.5% | 54.0% |
+
+### Benchmark Comparison vs CarDD Paper
 
 | Model | Backbone | mAP50 | vs Ours |
 |---|---|---|---|
-| Mask R-CNN | ResNet-50 | 66.3% | ✅ +5.4% |
-| Cascade Mask R-CNN | ResNet-50 | 64.7% | ✅ +7.0% |
-| GCNet | ResNet-50 | 66.4% | ✅ +5.3% |
-| HTC | ResNet-50 | 68.1% | ✅ +3.7% |
-| DCN | ResNet-50 | 70.9% | ✅ +0.8% |
-| Mask R-CNN | ResNet-101 | 67.7% | ✅ +4.0% |
-| HTC | ResNet-101 | 68.4% | ✅ +3.3% |
-| DCN | ResNet-101 | 69.8% | ✅ +1.9% |
-| **YOLOv8s (Ours)** | — | **71.7%** | 🔥 |
-| DCN+ | ResNet-50 | 77.4% | ❌ -5.7% |
-| DCN+ | ResNet-101 | 78.8% | ❌ -7.1% |
+| Mask R-CNN | ResNet-50 | 66.3% | ✅ +9.5% |
+| Cascade Mask R-CNN | ResNet-50 | 64.7% | ✅ +11.1% |
+| GCNet | ResNet-50 | 66.4% | ✅ +9.4% |
+| HTC | ResNet-50 | 68.1% | ✅ +7.7% |
+| DCN | ResNet-50 | 70.9% | ✅ +4.9% |
+| Mask R-CNN | ResNet-101 | 67.7% | ✅ +8.1% |
+| HTC | ResNet-101 | 68.4% | ✅ +7.4% |
+| DCN | ResNet-101 | 69.8% | ✅ +6.0% |
+| **YOLOv8s-seg (Ours)** | — | **75.8%** | 🔥 |
+| DCN+ | ResNet-50 | 77.4% | ❌ -1.6% |
+| DCN+ | ResNet-101 | 78.8% | ❌ -3.0% |
 
-> **Note:** YOLOv8s outperforms DCN+ on every individual damage category despite lower overall mAP50, due to differences in how detection metrics are aggregated across model types.
+### Per-Class Comparison vs DCN+ ResNet-101 (Paper's Best Model)
+
+| Class | DCN+ ResNet-101 | Ours (Box) | Difference |
+|---|---|---|---|
+| Dent | 40.5% | **60.6%** | ✅ +20.1% |
+| Scratch | 34.3% | **63.2%** | ✅ +28.9% |
+| Crack | 16.6% | **55.5%** | ✅ +38.9% |
+| Glass Shatter | 92.6% | **97.9%** | ✅ +5.3% |
+| Lamp Broken | 70.8% | **86.8%** | ✅ +16.0% |
+| Tire Flat | 86.0% | **91.0%** | ✅ +5.0% |
+
+> **Our model beats DCN+ on every individual damage class**, while being significantly lighter (22.5MB vs 200MB+) and faster.
+
+---
+
+## ✨ Features
+
+Beyond the base detection and segmentation model, the system includes the following novel features:
+
+### 🔴 Damage Severity Scoring
+Each detected damage instance is automatically assigned a severity label:
+- **Minor** — small area, high confidence, low-severity damage type
+- **Moderate** — medium area or moderate damage type
+- **Severe** — large area, structural damage (crack, glass shatter)
+
+### 🔄 Multi-Angle Damage Aggregation
+Upload multiple images of the same car from different angles. The system:
+- Runs detection on each image independently
+- Aggregates all detections across angles
+- Produces one unified damage report with per-image breakdown
+
+### 🚗 Car Verification
+Before running damage detection, the system verifies that the uploaded image actually contains a car using a COCO-pretrained YOLOv8 model — preventing false detections on non-vehicle images.
+
+### 🔑 Car Re-Identification
+When multiple images are uploaded, the system uses visual feature embeddings to verify that all images belong to the same vehicle — flagging inconsistencies that may indicate fraud.
 
 ---
 
@@ -129,11 +121,14 @@ docker-compose down
 This project uses the **CarDD** (Car Damage Detection) dataset:
 
 - **4,000** high-resolution car damage images
-- **9,000+** annotated instances across **6** damage categories
-- Annotations follow real insurance claim standards (Ping An Insurance Company)
-- Published in *IEEE Transactions on Intelligent Transportation Systems*, 2023
+- **9,000+** annotated instances
+- **6** damage categories
+- Annotations follow real insurance claim standards (Ping An Insurance)
+- Published in IEEE Transactions on Intelligent Transportation Systems, 2023
 
 > ⚠️ The dataset requires a license agreement. Request access at [cardd-ustc.github.io](https://cardd-ustc.github.io)
+
+**Dataset Split:**
 
 | Split | Images | Instances |
 |---|---|---|
@@ -147,183 +142,157 @@ This project uses the **CarDD** (Car Damage Detection) dataset:
 
 ```
 car-damage-detection/
-│
-├── model/                          # AI model training pipeline
+├── model/                          # Training & evaluation pipeline
 │   ├── scripts/
 │   │   ├── convert_annotations.py  # COCO → YOLO format conversion
 │   │   ├── check_dataset.py        # Dataset sanity check
-│   │   ├── train.py                # YOLOv8 fine-tuning
+│   │   ├── train.py                # Model fine-tuning
 │   │   ├── evaluate.py             # Test set evaluation
 │   │   ├── visualize.py            # Prediction visualization
 │   │   └── show_results.py         # Training curves & charts
 │   ├── cardd.yaml                  # Dataset configuration
+│   ├── cardd_seg.yaml              # Segmentation dataset config
 │   ├── requirements.txt            # Python dependencies
 │   └── .env.example                # Environment variables template
-│
-├── backend/                        # FastAPI REST API
+├── backend/                        # FastAPI backend
 │   ├── app/
-│   │   ├── main.py                 # FastAPI app entry point
-│   │   ├── database.py             # PostgreSQL connection
-│   │   ├── routes/
-│   │   │   └── detection.py        # Detection endpoints
-│   │   ├── models/
-│   │   │   └── detection.py        # SQLAlchemy DB models
-│   │   ├── schemas/
-│   │   │   └── detection.py        # Pydantic schemas
-│   │   └── services/
-│   │       └── yolo_service.py     # YOLOv8 inference + HuggingFace
+│   │   ├── routes/                 # API endpoints
+│   │   ├── services/               # YOLO inference & severity scoring
+│   │   ├── models/                 # Database models
+│   │   └── schemas/                # Pydantic schemas
 │   ├── Dockerfile
-│   ├── requirements.txt
-│   └── .env.example
-│
-├── frontend/                       # React web application
+│   └── requirements.txt
+├── frontend/                       # React frontend
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── Navbar.jsx
-│   │   │   ├── UploadZone.jsx      # Drag & drop image upload
-│   │   │   └── ResultCard.jsx      # Detection result display
-│   │   ├── pages/
-│   │   │   ├── Home.jsx            # Detection page
-│   │   │   └── History.jsx         # Detection history page
-│   │   └── services/
-│   │       └── api.js              # API client
-│   ├── Dockerfile
-│   └── nginx.conf                  # Nginx reverse proxy config
-│
-├── CarDamageDetection.postman_collection.json
-├── docker-compose.yml              # Full system orchestration
-├── .env.example                    # Root environment template
-├── .gitignore
-└── README.md
+│   │   ├── components/             # UI components
+│   │   └── pages/                  # App pages
+│   ├── nginx.conf
+│   └── Dockerfile
+├── docker-compose.yml              # Full stack deployment
+└── .gitignore
 ```
 
 ---
 
-## 🛠️ Manual Setup
-
-For development without Docker.
+## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.10+
-- Node.js 20+
-- PostgreSQL 16+
-- NVIDIA GPU with CUDA (recommended)
-- Conda
 
-### 1. Clone & Configure
+- Python 3.10+
+- NVIDIA GPU with CUDA support
+- Conda or virtualenv
+- Docker & Docker Compose (for full stack)
+
+### 1. Clone the Repository
+
 ```bash
 git clone https://github.com/abdullahghanem-a11y/car-damage-detection.git
 cd car-damage-detection
 ```
 
-### 2. Model Training Pipeline
+### 2. Create Conda Environment
+
 ```bash
 conda create -n cardd python=3.10 -y
 conda activate cardd
+```
+
+### 3. Install Dependencies
+
+```bash
 cd model
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
+```
+
+### 4. Configure Environment Variables
+
+```bash
 cp .env.example .env
-# Edit .env with your paths
+```
+
+Edit `.env` and update the paths to match your local setup:
+
+```dotenv
+PROJECT_ROOT=C:\path\to\your\cardd_project
+DATA_DIR=${PROJECT_ROOT}\data
+...
+```
+
+### 5. Prepare the Dataset
+
+After downloading CarDD and placing it in `data/`:
+
+```bash
 python scripts/convert_annotations.py
 python scripts/check_dataset.py
+```
+
+---
+
+## 💻 Usage
+
+### Train the Model
+
+```bash
+conda activate cardd
+cd model
 python scripts/train.py
+```
+
+### Evaluate on Test Set
+
+```bash
 python scripts/evaluate.py
 ```
 
-### 3. Backend
+### Visualize Predictions
+
 ```bash
-conda activate cardd
-cd backend
-pip install -r requirements.txt
-cp .env.example .env
-# Edit .env with your DATABASE_URL and model config
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python scripts/visualize.py
 ```
 
-### 4. Frontend
-```bash
-cd frontend
-npm install
-cp .env.example .env
-# Edit .env: VITE_API_BASE_URL=http://localhost:8000
-npm run dev
-```
+### Download Pre-trained Weights
 
-Open **http://localhost:5173**
+The fine-tuned model is available on HuggingFace:
 
----
+```python
+from huggingface_hub import hf_hub_download
 
-## 📡 API Reference
-
-Base URL: `http://localhost:8000`
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/health` | Health check |
-| `POST` | `/api/detect/` | Detect damage in 1–10 images |
-| `GET` | `/api/detect/history` | Get detection history (paginated) |
-| `GET` | `/api/detect/history/{id}` | Get single detection by ID |
-| `GET` | `/docs` | Interactive API documentation |
-
-> 📬 Import `CarDamageDetection.postman_collection.json` for ready-to-use API testing with dynamic variables.
-
-### Example Request
-```bash
-POST /api/detect/
-Content-Type: multipart/form-data
-Body: files=<image1.jpg>, files=<image2.jpg>
-```
-
-### Example Response
-```json
-{
-  "total_images": 1,
-  "total_instances": 3,
-  "results": [
-    {
-      "filename": "car.jpg",
-      "total_instances": 3,
-      "detections": [
-        {
-          "class_id": 0,
-          "class_name": "dent",
-          "confidence": 0.8825,
-          "bbox": [134.01, 135.27, 607.53, 251.57]
-        }
-      ],
-      "annotated_image": "<base64_encoded_image>"
-    }
-  ]
-}
+model_path = hf_hub_download(
+    repo_id  = "abdullahg7/cardd-yolov8s",
+    filename = "v1.0/best.pt"
+)
 ```
 
 ---
 
-## 🗺️ Roadmap
+## 🐳 Docker Deployment
 
-- [x] **Phase 1** — YOLOv8s model training & evaluation (mAP50: 71.67%)
-- [x] **Phase 2** — FastAPI backend with YOLOv8 inference
-- [x] **Phase 3** — PostgreSQL database integration
-- [x] **Phase 4** — React frontend with drag & drop UI
-- [x] **Phase 5** — Docker containerization
-- [ ] **Phase 6** — Model improvement (YOLOv8m, more data)
-- [ ] **Phase 7** — Export results as PDF report
-- [ ] **Phase 8** — User authentication
+Run the full stack (frontend + backend + database) with a single command:
+
+```bash
+docker compose up --build
+```
+
+| Service | URL |
+|---|---|
+| Frontend (React) | http://localhost:80 |
+| Backend (FastAPI) | http://localhost:8000 |
+| API Docs | http://localhost:8000/docs |
+| Database (PostgreSQL) | localhost:5432 |
 
 ---
 
 ## 📚 References
 
 - Wang, X., Li, W., & Wu, Z. (2023). CarDD: A New Dataset for Vision-Based Car Damage Detection. *IEEE Transactions on Intelligent Transportation Systems*, 24(7), 7202–7214.
-- Ultralytics (2023). YOLOv8. https://github.com/ultralytics/ultralytics
-- He, K., et al. (2017). Mask R-CNN. *Proc. IEEE ICCV*, 2961–2969.
-- Lin, T.-Y., et al. (2014). Microsoft COCO. *Proc. ECCV*, 740–755.
+- Ultralytics. (2023). YOLOv8. https://github.com/ultralytics/ultralytics
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **GNU AGPL-3.0 License** in compliance with the YOLOv8 framework by Ultralytics. You are free to use, modify, and deploy this software commercially as long as the source code remains publicly available.
+This project is licensed under the **GNU AGPL-3.0 License** in compliance with the YOLOv8 framework by Ultralytics.
 
-> ⚠️ **Dataset Notice:** CarDD images are subject to Flickr and Shutterstock licensing terms. Obtain proper licensing before commercial deployment.
+> ⚠️ **Dataset Notice:** The CarDD dataset images are subject to Flickr and Shutterstock licensing terms. Proper licensing must be obtained before commercial deployment.
