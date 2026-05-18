@@ -25,7 +25,7 @@ DEVICE_ENV      = os.getenv("DEVICE", "0")
 DEVICE          = "cpu" if DEVICE_ENV == "cpu" else int(DEVICE_ENV)
 
 # ── Car Re-identification threshold ───────────
-SIMILARITY_THRESHOLD = 0.80
+SIMILARITY_THRESHOLD = 0.75
 
 # ── Accepted vehicle classes from COCO ────────
 ACCEPTED_VEHICLES = {"car"}
@@ -55,6 +55,16 @@ DAMAGE_WEIGHTS = {
     "lamp_broken":   0.70,
     "scratch":       0.50,
     "tire_flat":     0.85,
+}
+
+# ── Per-class confidence thresholds ───────────
+CLASS_CONF_THRESHOLDS = {
+    "glass_shatter": 0.45,
+    "lamp_broken":   0.50,
+    "dent":          0.25,
+    "scratch":       0.35,
+    "crack":         0.35,
+    "tire_flat":     0.30,
 }
 
 # ── Singleton model instances ─────────────────
@@ -251,16 +261,33 @@ def group_images_by_car(images: list) -> dict:
     visited = [False] * n
     groups  = []
 
+    # Group images using union-find for transitive grouping
+    n = len(images)
+    parent = list(range(n))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(x, y):
+        px, py = find(x), find(y)
+        if px != py:
+            parent[px] = py
+
     for i in range(n):
-        if visited[i]:
-            continue
-        group   = [i]
-        visited[i] = True
         for j in range(i + 1, n):
-            if not visited[j] and sim_matrix[i][j] >= SIMILARITY_THRESHOLD:
-                group.append(j)
-                visited[j] = True
-        groups.append(group)
+            if sim_matrix[i][j] >= SIMILARITY_THRESHOLD:
+                union(i, j)
+
+    # Build groups from union-find result
+    from collections import defaultdict
+    group_map = defaultdict(list)
+    for i in range(n):
+        group_map[find(i)].append(i)
+
+    groups = list(group_map.values())
 
     # Build result
     result_groups = []
@@ -374,6 +401,15 @@ def run_inference(image_bytes: bytes, filename: str) -> dict:
     detections = []
     if results.boxes is not None:
         for box in results.boxes:
+
+            class_id   = int(box.cls)
+            class_name = CLASS_NAMES[class_id]
+            confidence = float(box.conf)
+
+            # ── Per-class confidence filter ────
+            if confidence < CLASS_CONF_THRESHOLDS.get(class_name, CONF_THRESHOLD):
+                continue
+
             x1, y1, x2, y2 = box.xyxy[0].tolist()
             class_id        = int(box.cls)
             class_name      = CLASS_NAMES[class_id]
