@@ -1,18 +1,37 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, JSON
+from sqlalchemy import Column, Integer, String, DateTime, JSON, Text, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
+
+
+class Session(Base):
+    __tablename__ = "sessions"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    name             = Column(String,  nullable=False)
+    model_version    = Column(String,  nullable=False)
+    total_instances  = Column(Integer, default=0)
+    overall_severity = Column(String,  nullable=True)
+    created_at       = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at       = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    detections = relationship("Detection", back_populates="session", cascade="all, delete-orphan")
 
 
 class Detection(Base):
     __tablename__ = "detections"
 
     id               = Column(Integer, primary_key=True, index=True)
-    image_filename   = Column(String, nullable=False)
-    image_path       = Column(String, nullable=False)
-    results          = Column(JSON, nullable=False)
+    session_id       = Column(Integer, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
+    image_filename   = Column(String,  nullable=False)
+    image_path       = Column(String,  nullable=False)   # path to raw image on disk
+    annotated_image  = Column(Text,    nullable=True)    # base64 annotated result
+    results          = Column(JSON,    nullable=False, default=list)
     total_instances  = Column(Integer, default=0)
-    model_version    = Column(String, nullable=False)
-    verified         = Column(Integer, default=1)   # 1=verified, 0=rejected
-    vehicle_type     = Column(String, nullable=True)
-    overall_severity = Column(String, nullable=True) # Minor/Moderate/Severe
+    model_version    = Column(String,  nullable=False)
+    verified         = Column(Integer, default=1)
+    vehicle_type     = Column(String,  nullable=True)
+    overall_severity = Column(String,  nullable=True)
     created_at       = Column(DateTime(timezone=True), server_default=func.now())
+
+    session = relationship("Session", back_populates="detections")

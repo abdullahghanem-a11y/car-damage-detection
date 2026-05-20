@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 
 
-# ── Single Detection Box ───────────────────────
+# ── Detection Box ──────────────────────────────────────────────────────────
 class DetectionBox(BaseModel):
     class_id:       int
     class_name:     str
@@ -14,7 +14,7 @@ class DetectionBox(BaseModel):
     severity_color: str
 
 
-# ── Per-Image Result ───────────────────────────
+# ── Per-Image Result (YOLO output) ─────────────────────────────────────────
 class DetectionResult(BaseModel):
     filename:         str
     verified:         bool
@@ -26,7 +26,7 @@ class DetectionResult(BaseModel):
     overall_severity: Optional[dict]
 
 
-# ── Aggregated Damage (multi-angle) ───────────
+# ── Aggregated Damage (multi-angle) ────────────────────────────────────────
 class AggregatedDamage(BaseModel):
     class_name:     str
     count:          int
@@ -36,7 +36,7 @@ class AggregatedDamage(BaseModel):
     max_confidence: float
 
 
-# ── Car Group (multi-angle) ───────────────────
+# ── Car Group (multi-angle) ────────────────────────────────────────────────
 class CarGroup(BaseModel):
     vehicle_type:      str
     image_count:       int
@@ -46,14 +46,16 @@ class CarGroup(BaseModel):
     overall_severity:  dict
 
 
-# ── Rejected Image ────────────────────────────
+# ── Rejected Image ─────────────────────────────────────────────────────────
 class RejectedImage(BaseModel):
     filename: str
     reason:   str
 
 
-# ── Batch Response ────────────────────────────
+# ── Batch Detection Response (from YOLO pipeline) ──────────────────────────
 class BatchDetectionResponse(BaseModel):
+    session_id:      int
+    session_name:    str
     total_images:    int
     verified_images: int
     rejected_images: List[RejectedImage]
@@ -61,14 +63,59 @@ class BatchDetectionResponse(BaseModel):
     total_instances: int
 
 
-# ── History Response ──────────────────────────
+# ── Single Detection DB Response ───────────────────────────────────────────
 class DetectionResponse(BaseModel):
-    id:              int
-    image_filename:  str
-    total_instances: int
-    results:         List[dict]
-    model_version:   str
-    created_at:      datetime
+    id:               int
+    session_id:       int
+    image_filename:   str
+    image_path:       str
+    annotated_image:  Optional[str]
+    results:          List[dict]
+    total_instances:  int
+    model_version:    str
+    verified:         int
+    vehicle_type:     Optional[str]
+    overall_severity: Optional[str]
+    created_at:       datetime
 
     class Config:
         from_attributes = True
+
+
+# ── Session Schemas ────────────────────────────────────────────────────────
+class SessionResponse(BaseModel):
+    id:               int
+    name:             str
+    model_version:    str
+    total_instances:  int
+    overall_severity: Optional[str]
+    created_at:       datetime
+    updated_at:       datetime
+    detections:       List[DetectionResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class SessionListResponse(BaseModel):
+    id:               int
+    name:             str
+    model_version:    str
+    total_instances:  int
+    overall_severity: Optional[str]
+    created_at:       datetime
+    updated_at:       datetime
+    image_count:      int           # number of detections in session
+
+    class Config:
+        from_attributes = True
+
+
+# ── Rename Request ─────────────────────────────────────────────────────────
+class RenameRequest(BaseModel):
+    name: str
+
+
+# ── Delete Images Request ──────────────────────────────────────────────────
+class DeleteImagesRequest(BaseModel):
+    detection_ids: List[int]       # list of detection IDs to delete

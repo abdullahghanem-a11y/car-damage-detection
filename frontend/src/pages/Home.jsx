@@ -29,8 +29,7 @@ function AggregatedDamageCard({ group, groupIndex }) {
   return (
     <div style={{
       background: "var(--bg-surface)", border: "1px solid var(--border)",
-      borderRadius: "12px", padding: "1rem", marginBottom: "1.25rem",
-      boxShadow: "var(--shadow)",
+      borderRadius: "12px", padding: "1rem", marginBottom: "1.25rem", boxShadow: "var(--shadow)",
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.85rem", gap: "0.5rem" }}>
         <div>
@@ -46,25 +45,20 @@ function AggregatedDamageCard({ group, groupIndex }) {
         </div>
         {group.overall_severity?.label && group.overall_severity.label !== "None" && (
           <span style={{
-            background: group.overall_severity.color + "18",
-            color: group.overall_severity.color,
-            border: `1px solid ${group.overall_severity.color}44`,
-            borderRadius: "6px", padding: "3px 10px",
-            fontSize: "0.7rem", fontWeight: "700",
-            letterSpacing: "0.05em", textTransform: "uppercase",
-            flexShrink: 0,
+            background: group.overall_severity.color + "18", color: group.overall_severity.color,
+            border: `1px solid ${group.overall_severity.color}44`, borderRadius: "6px",
+            padding: "3px 10px", fontSize: "0.7rem", fontWeight: "700",
+            letterSpacing: "0.05em", textTransform: "uppercase", flexShrink: 0,
           }}>
             {group.overall_severity.label}
           </span>
         )}
       </div>
-
       {group.aggregated_damage?.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
           {group.aggregated_damage.map((dmg, i) => (
             <div key={i} style={{
-              background: "var(--bg-elevated)", borderRadius: "8px",
-              padding: "0.5rem 0.65rem",
+              background: "var(--bg-elevated)", borderRadius: "8px", padding: "0.5rem 0.65rem",
               borderLeft: `3px solid ${CLASS_COLORS[dmg.class_name] || "#64748b"}`,
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem", gap: "0.5rem" }}>
@@ -80,14 +74,10 @@ function AggregatedDamageCard({ group, groupIndex }) {
                   border: `1px solid ${dmg.severity_color}44`, borderRadius: "6px",
                   padding: "1px 7px", fontSize: "0.68rem", fontWeight: "700",
                   textTransform: "uppercase", letterSpacing: "0.04em", flexShrink: 0,
-                }}>
-                  {dmg.severity_label}
-                </span>
+                }}>{dmg.severity_label}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.62rem", color: "var(--text-faint)", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
-                  SEVERITY SCORE
-                </span>
+                <span style={{ fontSize: "0.62rem", color: "var(--text-faint)", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>SEVERITY SCORE</span>
                 <SeverityBar score={dmg.severity_score} />
               </div>
             </div>
@@ -95,30 +85,173 @@ function AggregatedDamageCard({ group, groupIndex }) {
         </div>
       ) : (
         <div style={{
-          textAlign: "center", padding: "0.65rem",
-          background: "var(--bg-elevated)", borderRadius: "8px",
-          border: "1px solid var(--border)", color: "var(--success)",
-          fontSize: "0.8rem", fontWeight: "500",
-        }}>
-          No damage detected across all angles
-        </div>
+          textAlign: "center", padding: "0.65rem", background: "var(--bg-elevated)",
+          borderRadius: "8px", border: "1px solid var(--border)",
+          color: "var(--success)", fontSize: "0.8rem", fontWeight: "500",
+        }}>No damage detected across all angles</div>
       )}
     </div>
   );
 }
 
-export default function Home() {
-  const [files,   setFiles]   = useState([]);
-  const [results, setResults] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState(null);
+// ── Warning Modal ──────────────────────────────────────────────────────────
+function WarningModal({ warnings, onProceed, onStop }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "#00000099", backdropFilter: "blur(4px)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem",
+    }}>
+      <div style={{
+        background: "var(--bg-surface)", border: "1px solid var(--warning)",
+        borderRadius: "14px", padding: "1.5rem", maxWidth: "420px", width: "100%",
+        boxShadow: "var(--shadow)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1rem" }}>
+          <span style={{ fontSize: "1.4rem" }}>⚠️</span>
+          <h3 style={{ color: "var(--warning)", fontSize: "0.95rem", fontWeight: "700" }}>
+            Warning
+          </h3>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.25rem" }}>
+          {warnings.map((w, i) => (
+            <p key={i} style={{
+              color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: "1.5",
+              padding: "0.6rem 0.75rem", background: "var(--bg-elevated)",
+              borderRadius: "8px", borderLeft: "3px solid var(--warning)",
+            }}>
+              {w}
+            </p>
+          ))}
+        </div>
+        <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "1.25rem" }}>
+          Do you want to proceed anyway or stop the detection?
+        </p>
+        <div style={{ display: "flex", gap: "0.6rem", justifyContent: "flex-end" }}>
+          <button onClick={onStop} style={{
+            background: "transparent", color: "var(--text-muted)",
+            border: "1px solid var(--border)", borderRadius: "8px",
+            padding: "0.5rem 1rem", cursor: "pointer", fontSize: "0.85rem",
+          }}>Stop</button>
+          <button onClick={onProceed} style={{
+            background: "var(--warning)", color: "white", border: "none",
+            borderRadius: "8px", padding: "0.5rem 1.25rem",
+            cursor: "pointer", fontSize: "0.85rem", fontWeight: "600",
+          }}>Proceed Anyway</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-  const handleDetect = async () => {
+// ── Session Name Modal ─────────────────────────────────────────────────────
+function SessionNameModal({ fileCount, onConfirm, onCancel }) {
+  const [name, setName] = useState("");
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      background: "#00000099", backdropFilter: "blur(4px)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem",
+    }}>
+      <div style={{
+        background: "var(--bg-surface)", border: "1px solid var(--border)",
+        borderRadius: "14px", padding: "1.5rem", maxWidth: "400px", width: "100%",
+        boxShadow: "var(--shadow)",
+      }}>
+        <h3 style={{ color: "var(--text-primary)", fontSize: "0.95rem", fontWeight: "700", marginBottom: "0.4rem" }}>
+          Name this session
+        </h3>
+        <p style={{ color: "var(--text-muted)", fontSize: "0.82rem", marginBottom: "1.25rem" }}>
+          {fileCount} image{fileCount !== 1 ? "s" : ""} selected. Give this session a name to find it easily later.
+        </p>
+        <input
+          autoFocus
+          placeholder="e.g. Toyota Camry - Front damage"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) onConfirm(name.trim()); }}
+          style={{
+            width: "100%", background: "var(--bg-elevated)",
+            border: "1px solid var(--accent)", borderRadius: "8px",
+            padding: "0.6rem 0.85rem", color: "var(--text-primary)",
+            fontSize: "0.88rem", outline: "none", marginBottom: "1.25rem",
+          }}
+        />
+        <div style={{ display: "flex", gap: "0.6rem", justifyContent: "flex-end" }}>
+          <button onClick={onCancel} style={{
+            background: "transparent", color: "var(--text-muted)",
+            border: "1px solid var(--border)", borderRadius: "8px",
+            padding: "0.5rem 1rem", cursor: "pointer", fontSize: "0.85rem",
+          }}>Cancel</button>
+          <button
+            disabled={!name.trim()}
+            onClick={() => onConfirm(name.trim())}
+            style={{
+              background: name.trim() ? "var(--accent)" : "var(--bg-elevated)",
+              color: name.trim() ? "white" : "var(--text-faint)",
+              border: "none", borderRadius: "8px", padding: "0.5rem 1.25rem",
+              cursor: name.trim() ? "pointer" : "not-allowed",
+              fontSize: "0.85rem", fontWeight: "600",
+            }}>
+            Start Detection
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Home Page ─────────────────────────────────────────────────────────
+export default function Home() {
+  const [files,        setFiles]        = useState([]);
+  const [results,      setResults]      = useState(null);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState(null);
+
+  // Session naming
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [sessionName,   setSessionName]   = useState("");
+
+  // Pre-detection warnings
+  const [warnings,      setWarnings]      = useState([]);
+  const [pendingData,   setPendingData]   = useState(null);
+
+  const isDisabled = !files.length || loading;
+
+  // Step 1: User clicks Detect → show session name modal
+  const handleDetectClick = () => {
     if (!files.length) return;
-    setLoading(true); setError(null); setResults(null);
+    setShowNameModal(true);
+  };
+
+  // Step 2: User names session → run detection
+  const handleSessionNamed = async (name) => {
+    setShowNameModal(false);
+    setSessionName(name);
+    setLoading(true);
+    setError(null);
+    setResults(null);
+
     try {
-      const data = await detectDamage(files);
-      setResults(data);
+      const data = await detectDamage(files, name);
+
+      // Step 3: Check for warnings
+      const w = [];
+      if (data.car_groups?.length > 1) {
+        w.push(`We detected ${data.car_groups.length} different cars in this session. All images should be of the same car.`);
+      }
+      if (data.rejected_images?.length > 0) {
+        data.rejected_images.forEach((r) => {
+          w.push(`"${r.filename}" doesn't appear to contain a car (${r.reason}).`);
+        });
+      }
+
+      if (w.length > 0) {
+        setWarnings(w);
+        setPendingData(data);
+      } else {
+        setResults(data);
+      }
     } catch (err) {
       setError(err.response?.data?.detail || "Something went wrong. Please try again.");
     } finally {
@@ -126,8 +259,9 @@ export default function Home() {
     }
   };
 
-  const handleReset = () => { setFiles([]); setResults(null); setError(null); };
-  const isDisabled  = !files.length || loading;
+  const handleProceed = () => { setResults(pendingData); setWarnings([]); setPendingData(null); };
+  const handleStop    = () => { setWarnings([]); setPendingData(null); };
+  const handleReset   = () => { setFiles([]); setResults(null); setError(null); setSessionName(""); };
 
   return (
     <>
@@ -136,8 +270,7 @@ export default function Home() {
           background: linear-gradient(135deg, var(--accent), #0ea5e9);
           color: white; border: none; border-radius: 8px;
           padding: 0.65rem 1.5rem; font-size: 0.88rem; font-weight: 600;
-          cursor: pointer; transition: opacity 0.2s, transform 0.15s;
-          width: 100%;
+          cursor: pointer; transition: opacity 0.2s, transform 0.15s; width: 100%;
         }
         .detect-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
         .detect-btn:disabled { background: var(--bg-elevated); color: var(--text-faint); cursor: not-allowed; transform: none; }
@@ -155,19 +288,12 @@ export default function Home() {
         .results-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 0.85rem;
-          margin-bottom: 1.75rem;
+          gap: 0.85rem; margin-bottom: 1.75rem;
         }
-        @media (max-width: 400px) {
-          .results-grid { grid-template-columns: 1fr; }
-        }
+        @media (max-width: 400px) { .results-grid { grid-template-columns: 1fr; } }
         .summary-bar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1.25rem;
-          flex-wrap: wrap;
-          gap: 0.75rem;
+          display: flex; justify-content: space-between;
+          align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;
         }
       `}</style>
 
@@ -190,12 +316,10 @@ export default function Home() {
                 background: "var(--bg-elevated)", border: "1px solid var(--danger)",
                 borderRadius: "8px", padding: "0.75rem",
                 marginTop: "0.85rem", color: "var(--danger)", fontSize: "0.82rem",
-              }}>
-                {error}
-              </div>
+              }}>{error}</div>
             )}
             <div style={{ marginTop: "1rem" }}>
-              <button className="detect-btn" onClick={handleDetect} disabled={isDisabled}>
+              <button className="detect-btn" onClick={handleDetectClick} disabled={isDisabled}>
                 {loading ? "Detecting..." : files.length > 0
                   ? `Detect Damage — ${files.length} image${files.length > 1 ? "s" : ""}`
                   : "Detect Damage"}
@@ -223,7 +347,7 @@ export default function Home() {
             <div className="summary-bar">
               <div>
                 <h2 style={{ fontSize: "1.1rem", fontWeight: "700", color: "var(--text-primary)" }}>
-                  Detection Complete
+                  {sessionName || "Detection Complete"}
                 </h2>
                 <p style={{ color: "var(--text-muted)", fontSize: "0.78rem", marginTop: "0.2rem" }}>
                   {results.total_images} uploaded · {results.verified_images} verified · {results.total_instances} instances
@@ -265,6 +389,22 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* ── Modals ── */}
+      {showNameModal && (
+        <SessionNameModal
+          fileCount={files.length}
+          onConfirm={handleSessionNamed}
+          onCancel={() => setShowNameModal(false)}
+        />
+      )}
+      {warnings.length > 0 && (
+        <WarningModal
+          warnings={warnings}
+          onProceed={handleProceed}
+          onStop={handleStop}
+        />
+      )}
     </>
   );
 }
