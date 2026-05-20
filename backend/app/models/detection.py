@@ -8,6 +8,7 @@ class Session(Base):
     __tablename__ = "sessions"
 
     id               = Column(Integer, primary_key=True, index=True)
+    user_id          = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     name             = Column(String,  nullable=False)
     model_version    = Column(String,  nullable=False)
     total_instances  = Column(Integer, default=0)
@@ -15,6 +16,7 @@ class Session(Base):
     created_at       = Column(DateTime(timezone=True), server_default=func.now())
     updated_at       = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    user       = relationship("User",      back_populates="sessions")
     detections = relationship("Detection", back_populates="session", cascade="all, delete-orphan")
 
 
@@ -24,8 +26,8 @@ class Detection(Base):
     id               = Column(Integer, primary_key=True, index=True)
     session_id       = Column(Integer, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
     image_filename   = Column(String,  nullable=False)
-    image_path       = Column(String,  nullable=False)   # path to raw image on disk
-    annotated_image  = Column(Text,    nullable=True)    # base64 annotated result
+    image_path       = Column(String,  nullable=False)
+    annotated_image  = Column(Text,    nullable=True)
     results          = Column(JSON,    nullable=False, default=list)
     total_instances  = Column(Integer, default=0)
     model_version    = Column(String,  nullable=False)

@@ -64,7 +64,7 @@ CLASS_CONF_THRESHOLDS = {
     "dent":          0.45,   # raised: door handle confusion
     "scratch":       0.35,
     "crack":         0.35,
-    "tire_flat":     0.35,
+    "tire_flat":     0.30,
 }
 
 # ── Singleton model instances ─────────────────
@@ -662,3 +662,27 @@ def _aggregate_detections(detections: list) -> list:
     # Sort by severity score descending
     aggregated.sort(key=lambda x: x["severity_score"], reverse=True)
     return aggregated
+
+# ── Model switcher (called by admin route) ────────────────────────────────
+def switch_model_version(version: str):
+    """
+    Switch the active damage detection model to a different version.
+    Resets the global _damage_model and reloads with the new version.
+    """
+    global MODEL_VERSION, _damage_model
+    from huggingface_hub import hf_hub_download
+
+    # Download/verify the new version exists
+    hf_hub_download(
+        repo_id   = HF_REPO_ID,
+        filename  = version,
+        cache_dir = MODEL_CACHE_DIR,
+    )
+
+    # Reset global model so load_damage_model() reloads fresh
+    _damage_model = None
+    MODEL_VERSION = version
+
+    # Re-load immediately into memory
+    load_damage_model()
+    print(f"✅ Model switched to {version}")

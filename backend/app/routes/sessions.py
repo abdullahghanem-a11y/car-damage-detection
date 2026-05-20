@@ -8,6 +8,8 @@ import os
 
 from app.database import get_db
 from app.models.detection import Detection, Session
+from app.models.user import User, UserRole
+from app.services.auth_service import get_current_active_user
 from app.schemas.detection import (
     SessionResponse, SessionListResponse,
     RenameRequest, DeleteImagesRequest,
@@ -46,8 +48,10 @@ def list_sessions(
     severity: Optional[str] = Query(None),
     sort:     Optional[str] = Query("date_desc"),
     db:       DBSession     = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
-    query = db.query(Session)
+    # Admins see all sessions, regular users see only their own
+    query = db.query(Session) if current_user.role == UserRole.admin else db.query(Session).filter(Session.user_id == current_user.id)
 
     if search:
         query = query.filter(Session.name.ilike(f"%{search}%"))
@@ -89,10 +93,12 @@ def list_sessions(
 
 # ── GET /api/sessions/{id} ─────────────────────────────────────────────────
 @router.get("/{session_id}", response_model=SessionResponse)
-def get_session(session_id: int, db: DBSession = Depends(get_db)):
+def get_session(session_id: int, db: DBSession = Depends(get_db), current_user: User = Depends(get_current_active_user)):
     session = db.query(Session).filter(Session.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    if current_user.role != UserRole.admin and session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
     return session
 
 

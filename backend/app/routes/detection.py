@@ -6,6 +6,8 @@ from pathlib import Path
 import os
 
 from app.database import get_db
+from app.models.user import User
+from app.services.auth_service import get_current_active_user
 from app.models.detection import Detection, Session
 from app.schemas.detection import BatchDetectionResponse
 from app.services.yolo_service import run_batch_inference
@@ -50,6 +52,7 @@ async def detect_damage(
     files:        List[UploadFile] = File(..., media_type="image/*"),
     session_name: str              = Query(..., description="Name for this detection session"),
     db:           DBSession        = Depends(get_db),
+    current_user: User             = Depends(get_current_active_user),
 ):
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded")
@@ -82,6 +85,7 @@ async def detect_damage(
 
     # ── Create session ─────────────────────────────────────────────────────
     session = Session(
+        user_id          = current_user.id,
         name             = session_name.strip(),
         model_version    = MODEL_VERSION,
         total_instances  = batch_result["total_instances"],
