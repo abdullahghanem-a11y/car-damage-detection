@@ -1,0 +1,480 @@
+{
+  "info": {
+    "_postman_id": "7c0520aa-0032-48ef-a1bb-c725f30b0076",
+    "name": "AUTOPS — Car Damage Detection API v2.0",
+    "description": "Complete API collection for AUTOPS.\n\nCollection Variables:\n- base_url: http://localhost:8000\n- access_token: auto-set by login/register\n- session_id: auto-set after detection\n- detection_id: auto-set after detection\n\nWorkflow:\n1. Register or Login → access_token is auto-saved\n2. Detect Damage → session_id and detection_id auto-saved\n3. Use Sessions endpoints with saved IDs\n4. Admin endpoints require admin account",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+  },
+  "item": [
+
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+            "pm.test('API is healthy', () => pm.expect(pm.response.json().status).to.eql('healthy'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] },
+            "description": "Check if the API is running. No auth required."
+          },
+          "response": [{ "name": "200 OK", "status": "OK", "code": 200,
+            "body": "{\"status\": \"healthy\", \"version\": \"2.0.0\"}" }]
+        }
+      ]
+    },
+
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+            "const res = pm.response.json();",
+            "pm.test('Has access token', () => pm.expect(res.access_token).to.be.a('string'));",
+            "pm.test('Has user object', () => pm.expect(res.user).to.be.an('object'));",
+            "pm.collectionVariables.set('access_token', res.access_token);",
+            "console.log('Registered as:', res.user.username);"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"user@example.com\",\n  \"username\": \"testuser\",\n  \"password\": \"password123\"\n}" },
+            "url": { "raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api","auth","register"] },
+            "description": "Register a new user account.\n\nOn success: access_token saved to collection variable automatically.\nRefresh token is set as httpOnly cookie by the server."
+          },
+          "response": [
+            { "name": "201 Created", "status": "Created", "code": 201,
+              "body": "{\n  \"access_token\": \"eyJ...\",\n  \"token_type\": \"bearer\",\n  \"user\": {\n    \"id\": 2,\n    \"email\": \"user@example.com\",\n    \"username\": \"testuser\",\n    \"role\": \"user\",\n    \"is_active\": true,\n    \"avatar_url\": null,\n    \"created_at\": \"2026-05-20T10:00:00Z\",\n    \"last_login\": null\n  }\n}" },
+            { "name": "400 Email Taken", "status": "Bad Request", "code": 400,
+              "body": "{\"detail\": \"Email already registered\"}" },
+            { "name": "400 Username Taken", "status": "Bad Request", "code": 400,
+              "body": "{\"detail\": \"Username already taken\"}" }
+          ]
+        },
+        {
+          "name": "Login",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+            "const res = pm.response.json();",
+            "pm.test('Has access token', () => pm.expect(res.access_token).to.be.a('string'));",
+            "pm.collectionVariables.set('access_token', res.access_token);",
+            "console.log('Logged in as:', res.user.username, '| Role:', res.user.role);"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username_or_email\": \"admin\",\n  \"password\": \"Admin@AUTOPS2025\"\n}" },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api","auth","login"] },
+            "description": "Login with username or email.\n\nOn success: access_token saved automatically.\nRefresh token set as httpOnly cookie.\n\nDefault admin credentials:\n- username: admin\n- password: Admin@AUTOPS2025"
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\n  \"access_token\": \"eyJ...\",\n  \"token_type\": \"bearer\",\n  \"user\": {\n    \"id\": 1,\n    \"username\": \"admin\",\n    \"role\": \"admin\",\n    \"is_active\": true\n  }\n}" },
+            { "name": "401 Invalid Credentials", "status": "Unauthorized", "code": 401,
+              "body": "{\"detail\": \"Invalid credentials\"}" }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+            "const res = pm.response.json();",
+            "pm.collectionVariables.set('access_token', res.access_token);",
+            "console.log('Token refreshed');"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST", "header": [],
+            "url": { "raw": "{{base_url}}/api/auth/refresh", "host": ["{{base_url}}"], "path": ["api","auth","refresh"] },
+            "description": "Get new access token using the httpOnly refresh cookie.\nCookie must be present (set by login/register)."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\"access_token\": \"eyJ...\", \"token_type\": \"bearer\"}" },
+            { "name": "401 No Cookie", "status": "Unauthorized", "code": 401,
+              "body": "{\"detail\": \"No refresh token\"}" }
+          ]
+        },
+        {
+          "name": "Get Current User",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has username', () => pm.expect(pm.response.json().username).to.be.a('string'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api","auth","me"] },
+            "description": "Get current authenticated user's profile."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\n  \"id\": 1,\n  \"email\": \"admin@autops.com\",\n  \"username\": \"admin\",\n  \"role\": \"admin\",\n  \"is_active\": true,\n  \"avatar_url\": null,\n  \"created_at\": \"2026-05-20T10:00:00Z\",\n  \"last_login\": \"2026-05-20T12:00:00Z\"\n}" }
+          ]
+        },
+        {
+          "name": "Logout",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+            "pm.collectionVariables.set('access_token', '');",
+            "console.log('Logged out, token cleared');"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST", "header": [],
+            "url": { "raw": "{{base_url}}/api/auth/logout", "host": ["{{base_url}}"], "path": ["api","auth","logout"] },
+            "description": "Logout — clears httpOnly refresh cookie."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\"message\": \"Logged out successfully\"}" }
+          ]
+        },
+        {
+          "name": "Submit Feedback",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"message\": \"Great tool, very accurate!\",\n  \"rating\": 5\n}" },
+            "url": { "raw": "{{base_url}}/api/auth/feedback", "host": ["{{base_url}}"], "path": ["api","auth","feedback"] },
+            "description": "Submit feedback. Rating is optional (1-5)."
+          },
+          "response": [
+            { "name": "201 Created", "status": "Created", "code": 201,
+              "body": "{\n  \"id\": 1,\n  \"message\": \"Great tool!\",\n  \"rating\": 5,\n  \"created_at\": \"2026-05-20T12:00:00Z\"\n}" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "Detection",
+      "item": [
+        {
+          "name": "Detect Damage",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+            "const res = pm.response.json();",
+            "pm.test('Has session_id', () => pm.expect(res.session_id).to.be.a('number'));",
+            "pm.test('Has car_groups', () => pm.expect(res.car_groups).to.be.an('array'));",
+            "pm.collectionVariables.set('session_id', res.session_id);",
+            "if (res.car_groups.length > 0 && res.car_groups[0].images.length > 0) {",
+            "  pm.collectionVariables.set('detection_id', res.car_groups[0].images[0].id || 1);",
+            "}",
+            "console.log('Session ID:', res.session_id, '| Instances:', res.total_instances);"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "files", "type": "file", "description": "Car image (jpg/jpeg/png, max 10MB)" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/detect/?session_name=Test Session",
+              "host": ["{{base_url}}"], "path": ["api","detect",""],
+              "query": [{ "key": "session_name", "value": "Test Session", "description": "Required. Name for this detection session." }]
+            },
+            "description": "Detect car damage in uploaded images.\n\nRequirements:\n- session_name query param is required\n- Max 10 images per request\n- Supported: jpg, jpeg, png, max 10MB each\n- Bearer token required\n\nOn success: session_id and detection_id auto-saved."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\n  \"session_id\": 1,\n  \"session_name\": \"Test Session\",\n  \"total_images\": 1,\n  \"verified_images\": 1,\n  \"rejected_images\": [],\n  \"total_instances\": 3,\n  \"car_groups\": [\n    {\n      \"vehicle_type\": \"car\",\n      \"image_count\": 1,\n      \"total_instances\": 3,\n      \"overall_severity\": { \"label\": \"Moderate\", \"score\": 0.54, \"color\": \"#f59e0b\" },\n      \"aggregated_damage\": [\n        { \"class_name\": \"dent\", \"count\": 2, \"severity_label\": \"Moderate\", \"max_confidence\": 0.82 }\n      ],\n      \"images\": [\n        {\n          \"filename\": \"car.jpg\",\n          \"verified\": true,\n          \"vehicle_type\": \"car\",\n          \"total_instances\": 3,\n          \"detections\": [\n            { \"class_id\": 0, \"class_name\": \"dent\", \"confidence\": 0.82, \"bbox\": [120, 80, 340, 220], \"severity_label\": \"Moderate\", \"severity_score\": 0.54, \"severity_color\": \"#f59e0b\" }\n          ],\n          \"annotated_image\": \"<base64>\",\n          \"overall_severity\": { \"label\": \"Moderate\", \"score\": 0.54 }\n        }\n      ]\n    }\n  ]\n}" },
+            { "name": "400 No session_name", "status": "Bad Request", "code": 400,
+              "body": "{\"detail\": \"session_name is required\"}" },
+            { "name": "401 Unauthorized", "status": "Unauthorized", "code": 401,
+              "body": "{\"detail\": \"Not authenticated\"}" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "Sessions",
+      "item": [
+        {
+          "name": "List Sessions",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+            "const res = pm.response.json();",
+            "pm.test('Returns array', () => pm.expect(res).to.be.an('array'));",
+            "if (res.length > 0) pm.collectionVariables.set('session_id', res[0].id);"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sessions/?skip=0&limit=20&sort=date_desc",
+              "host": ["{{base_url}}"], "path": ["api","sessions",""],
+              "query": [
+                { "key": "skip",     "value": "0",         "description": "Pagination offset" },
+                { "key": "limit",    "value": "20",        "description": "Max results (1-100)" },
+                { "key": "sort",     "value": "date_desc", "description": "date_desc|date_asc|name_asc|name_desc|severity_desc|severity_asc|instances_desc|instances_asc" },
+                { "key": "search",   "value": "",          "description": "Search by session name", "disabled": true },
+                { "key": "severity", "value": "",          "description": "Filter: Minor|Moderate|Severe", "disabled": true }
+              ]
+            },
+            "description": "List all sessions for the current user.\nAdmins see all sessions across all users.\n\nSupports: search, severity filter, sort, pagination."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "[\n  {\n    \"id\": 1,\n    \"name\": \"Test Session\",\n    \"model_version\": \"v2.0/best.pt\",\n    \"total_instances\": 3,\n    \"overall_severity\": \"Moderate\",\n    \"image_count\": 1,\n    \"created_at\": \"2026-05-20T10:00:00Z\",\n    \"updated_at\": \"2026-05-20T10:00:00Z\"\n  }\n]" }
+          ]
+        },
+        {
+          "name": "Get Session",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/api/sessions/{{session_id}}", "host": ["{{base_url}}"], "path": ["api","sessions","{{session_id}}"] },
+            "description": "Get a single session with all its detections and annotated images."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\n  \"id\": 1,\n  \"name\": \"Test Session\",\n  \"total_instances\": 3,\n  \"detections\": [ { \"id\": 1, \"image_filename\": \"car.jpg\", \"annotated_image\": \"<base64>\", \"results\": [...] } ]\n}" },
+            { "name": "404 Not Found", "status": "Not Found", "code": 404,
+              "body": "{\"detail\": \"Session not found\"}" }
+          ]
+        },
+        {
+          "name": "Get Raw Image",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/api/sessions/{{session_id}}/images/{{detection_id}}/raw", "host": ["{{base_url}}"], "path": ["api","sessions","{{session_id}}","images","{{detection_id}}","raw"] },
+            "description": "Serve the original (unannotated) image file from disk. Returns JPEG bytes."
+          },
+          "response": [
+            { "name": "200 Image", "status": "OK", "code": 200, "body": "<binary JPEG data>" },
+            { "name": "404 Not Found", "status": "Not Found", "code": 404,
+              "body": "{\"detail\": \"Raw image file not found on disk\"}" }
+          ]
+        },
+        {
+          "name": "Rename Session",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"My renamed session\"\n}" },
+            "url": { "raw": "{{base_url}}/api/sessions/{{session_id}}/rename", "host": ["{{base_url}}"], "path": ["api","sessions","{{session_id}}","rename"] },
+            "description": "Rename a session."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{ \"id\": 1, \"name\": \"My renamed session\", ... }" }
+          ]
+        },
+        {
+          "name": "Delete Session",
+          "request": {
+            "method": "DELETE", "header": [],
+            "url": { "raw": "{{base_url}}/api/sessions/{{session_id}}", "host": ["{{base_url}}"], "path": ["api","sessions","{{session_id}}"] },
+            "description": "Delete entire session and all its images from disk."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\"message\": \"Session 1 deleted successfully\"}" }
+          ]
+        },
+        {
+          "name": "Delete Selected Images",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"detection_ids\": [1, 2]\n}" },
+            "url": { "raw": "{{base_url}}/api/sessions/{{session_id}}/images", "host": ["{{base_url}}"], "path": ["api","sessions","{{session_id}}","images"] },
+            "description": "Delete selected images from a session. If all are deleted, the session is also removed."
+          },
+          "response": [
+            { "name": "200 Partial Delete", "status": "OK", "code": 200,
+              "body": "{\"message\": \"2 image(s) deleted\", \"session_deleted\": false, \"remaining_images\": 1}" },
+            { "name": "200 Session Deleted", "status": "OK", "code": 200,
+              "body": "{\"message\": \"All images deleted — session removed\", \"session_deleted\": true}" }
+          ]
+        },
+        {
+          "name": "Re-detect Image",
+          "request": {
+            "method": "POST", "header": [],
+            "url": { "raw": "{{base_url}}/api/sessions/{{session_id}}/images/{{detection_id}}/redetect", "host": ["{{base_url}}"], "path": ["api","sessions","{{session_id}}","images","{{detection_id}}","redetect"] },
+            "description": "Re-run YOLO detection on the stored raw image (after editing)."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\n  \"message\": \"Re-detection complete\",\n  \"total_instances\": 2,\n  \"overall_severity\": \"Minor\",\n  \"verified\": 1\n}" }
+          ]
+        },
+        {
+          "name": "Copy Detection as New",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"image_data\": \"<base64 edited image>\",\n  \"copy_name\": \"Cropped front view\"\n}" },
+            "url": { "raw": "{{base_url}}/api/sessions/{{session_id}}/images/{{detection_id}}/copy", "host": ["{{base_url}}"], "path": ["api","sessions","{{session_id}}","images","{{detection_id}}","copy"] },
+            "description": "Save an edited image as a new detection entry in the same session. Runs YOLO on the copy."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\n  \"message\": \"Copy created and re-detected successfully\",\n  \"detection_id\": 3,\n  \"total_instances\": 2,\n  \"overall_severity\": \"Minor\",\n  \"verified\": 1\n}" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Dashboard Stats",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has overview', () => pm.expect(pm.response.json().overview).to.be.an('object'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/api/admin/stats", "host": ["{{base_url}}"], "path": ["api","admin","stats"] },
+            "description": "Admin only. Returns overview stats, damage/severity distributions, daily activity, recent sessions."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\n  \"overview\": { \"total_users\": 5, \"total_sessions\": 12, \"total_detections\": 24, \"total_instances\": 87 },\n  \"severity_distribution\": [...],\n  \"damage_distribution\": [...],\n  \"daily_sessions\": [...],\n  \"recent_sessions\": [...]\n}" },
+            { "name": "403 Forbidden", "status": "Forbidden", "code": 403,
+              "body": "{\"detail\": \"Admin access required\"}" }
+          ]
+        },
+        {
+          "name": "System Health",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/api/admin/health", "host": ["{{base_url}}"], "path": ["api","admin","health"] },
+            "description": "Admin only. Returns DB status, model status, uptime, memory and CPU usage."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\n  \"status\": \"healthy\",\n  \"database\": { \"status\": \"connected\" },\n  \"model\": { \"status\": \"loaded\", \"version\": \"v2.0/best.pt\" },\n  \"system\": { \"uptime\": \"2h 15m 3s\", \"memory_mb\": 1240.5, \"cpu_pct\": 4.2 }\n}" }
+          ]
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users?skip=0&limit=20",
+              "host": ["{{base_url}}"], "path": ["api","admin","users"],
+              "query": [
+                { "key": "skip",   "value": "0",  "description": "Pagination offset" },
+                { "key": "limit",  "value": "20", "description": "Max results" },
+                { "key": "search", "value": "",   "description": "Search by username or email", "disabled": true }
+              ]
+            },
+            "description": "Admin only. List all registered users."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\n  \"total\": 5,\n  \"users\": [\n    { \"id\": 1, \"username\": \"admin\", \"email\": \"admin@autops.com\", \"role\": \"admin\", \"is_active\": true, \"sessions\": 0 }\n  ]\n}" }
+          ]
+        },
+        {
+          "name": "Toggle User Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"is_active\": false\n}" },
+            "url": { "raw": "{{base_url}}/api/admin/users/2", "host": ["{{base_url}}"], "path": ["api","admin","users","2"] },
+            "description": "Admin only. Enable or disable a user account. Cannot modify admin accounts."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\"message\": \"User disabled\", \"is_active\": false}" }
+          ]
+        },
+        {
+          "name": "Activity Logs",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/logs?skip=0&limit=50",
+              "host": ["{{base_url}}"], "path": ["api","admin","logs"],
+              "query": [
+                { "key": "skip",    "value": "0",  "description": "Pagination offset" },
+                { "key": "limit",   "value": "50", "description": "Max results (1-200)" },
+                { "key": "action",  "value": "",   "description": "Filter by action: login|register|logout|detect|delete_session|...", "disabled": true },
+                { "key": "user_id", "value": "",   "description": "Filter by user ID", "disabled": true },
+                { "key": "status",  "value": "",   "description": "Filter by HTTP status: 200|401|404|500", "disabled": true }
+              ]
+            },
+            "description": "Admin only. All API activity logs with optional filters."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\n  \"total\": 142,\n  \"logs\": [\n    { \"id\": 1, \"username\": \"admin\", \"action\": \"login\", \"method\": \"POST\", \"path\": \"/api/auth/login\", \"status\": 200, \"ip_address\": \"127.0.0.1\", \"created_at\": \"2026-05-20T10:00:00Z\" }\n  ]\n}" }
+          ]
+        },
+        {
+          "name": "Model Info",
+          "request": {
+            "method": "GET", "header": [],
+            "url": { "raw": "{{base_url}}/api/admin/model", "host": ["{{base_url}}"], "path": ["api","admin","model"] },
+            "description": "Admin only. Returns active model version, available versions, and training metrics from CSV."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\n  \"active_version\": \"v2.0/best.pt\",\n  \"available_versions\": [\"v1.0/best.pt\", \"v2.0/best.pt\"],\n  \"metrics\": {\n    \"v2.0/best.pt\": {\n      \"epochs\": 50,\n      \"best_epoch\": 45,\n      \"best\": { \"mAP50_box\": 75.8, \"mAP50_mask\": 74.4, \"precision\": 76.2, \"recall\": 72.5 },\n      \"curve\": [...]\n    }\n  }\n}" }
+          ]
+        },
+        {
+          "name": "Switch Model",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"version\": \"v1.0/best.pt\"\n}" },
+            "url": { "raw": "{{base_url}}/api/admin/model", "host": ["{{base_url}}"], "path": ["api","admin","model"] },
+            "description": "Admin only. Switch active model version and reload in memory immediately (no restart needed)."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\"message\": \"Model switched to v1.0/best.pt\", \"active_version\": \"v1.0/best.pt\"}" },
+            { "name": "400 Not Found", "status": "Bad Request", "code": 400,
+              "body": "{\"detail\": \"Version 'v3.0/best.pt' not found. Available: ['v1.0/best.pt', 'v2.0/best.pt']\"}" }
+          ]
+        },
+        {
+          "name": "All Feedback",
+          "request": {
+            "method": "GET", "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/feedback?skip=0&limit=50",
+              "host": ["{{base_url}}"], "path": ["api","admin","feedback"],
+              "query": [
+                { "key": "skip",  "value": "0",  "description": "Pagination offset" },
+                { "key": "limit", "value": "50", "description": "Max results" }
+              ]
+            },
+            "description": "Admin only. All user feedback with ratings and average score."
+          },
+          "response": [
+            { "name": "200 OK", "status": "OK", "code": 200,
+              "body": "{\n  \"total\": 8,\n  \"avg_rating\": 4.25,\n  \"feedbacks\": [\n    { \"id\": 1, \"username\": \"testuser\", \"message\": \"Great tool!\", \"rating\": 5, \"created_at\": \"2026-05-20T10:00:00Z\" }\n  ]\n}" }
+          ]
+        }
+      ]
+    }
+
+  ],
+  "variable": [
+    { "key": "base_url",     "value": "http://localhost:8000", "description": "API base URL" },
+    { "key": "access_token", "value": "",    "description": "Auto-set by Login/Register test script" },
+    { "key": "session_id",   "value": "1",   "description": "Auto-set after Detect Damage" },
+    { "key": "detection_id", "value": "1",   "description": "Auto-set after Detect Damage" },
+    { "key": "skip",         "value": "0",   "description": "Pagination offset" },
+    { "key": "limit",        "value": "20",  "description": "Records per page" }
+  ]
+}
