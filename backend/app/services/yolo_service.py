@@ -18,7 +18,7 @@ load_dotenv()
 HF_REPO_ID      = os.getenv("HF_REPO_ID",      "abdullahg7/cardd-yolov8s")
 MODEL_VERSION   = os.getenv("MODEL_VERSION",   "v1.0/best.pt")
 MODEL_CACHE_DIR = os.getenv("MODEL_CACHE_DIR", "./weights")
-CONF_THRESHOLD  = float(os.getenv("CONF_THRESHOLD", 0.25))
+CONF_THRESHOLD  = float(os.getenv("CONF_THRESHOLD", 0.35))
 IOU_THRESHOLD   = float(os.getenv("IOU_THRESHOLD",  0.45))
 IMG_SIZE        = int(os.getenv("IMG_SIZE",         640))
 DEVICE_ENV      = os.getenv("DEVICE", "0")
@@ -60,11 +60,11 @@ DAMAGE_WEIGHTS = {
 # ── Per-class confidence thresholds ───────────
 CLASS_CONF_THRESHOLDS = {
     "glass_shatter": 0.45,
-    "lamp_broken":   0.50,
-    "dent":          0.25,
+    "lamp_broken":   0.60,   # raised: false positives on intact lamps
+    "dent":          0.45,   # raised: door handle confusion
     "scratch":       0.35,
     "crack":         0.35,
-    "tire_flat":     0.30,
+    "tire_flat":     0.35,
 }
 
 # ── Singleton model instances ─────────────────
@@ -399,8 +399,13 @@ def run_inference(image_bytes: bytes, filename: str) -> dict:
 
     # ── Stage 3: Parse + Severity Scoring ──────
     detections = []
-    if results.boxes is not None:
-        for box in results.boxes:
+    overlay    = img.copy()   # separate layer for mask fills
+
+    boxes = results.boxes
+    masks = results.masks     # segmentation masks (may be None)
+
+    if boxes is not None:
+        for i, box in enumerate(boxes):
 
             class_id   = int(box.cls)
             class_name = CLASS_NAMES[class_id]
@@ -411,10 +416,8 @@ def run_inference(image_bytes: bytes, filename: str) -> dict:
                 continue
 
             x1, y1, x2, y2 = box.xyxy[0].tolist()
-            class_id        = int(box.cls)
-            class_name      = CLASS_NAMES[class_id]
-            confidence      = float(box.conf)
             bbox            = [round(x1,2), round(y1,2), round(x2,2), round(y2,2)]
+            color           = CLASS_COLORS.get(class_name, (255, 255, 255))
 
             severity = calculate_severity(
                 confidence = confidence,
@@ -433,18 +436,62 @@ def run_inference(image_bytes: bytes, filename: str) -> dict:
                 "severity_color":  severity["color"],
             })
 
-            # Draw bounding box
-            color = CLASS_COLORS.get(class_name, (255, 255, 255))
-            cv2.rectangle(img,
-                         (int(x1), int(y1)),
-                         (int(x2), int(y2)), color, 2)
+            # ── Draw mask overlay ──────────────────────────────────────────
+            mask_drawn = False
+            if masks is not None and i < len(masks.data):
+                try:
+                    # masks.data[i] is a float tensor (H x W), values 0-1
+                    mask_np = masks.data[i].cpu().numpy()
 
-            # Draw label with severity
-            label = f"{class_name} {confidence:.2f} [{severity['label']}]"
+                    # Resize mask to original image size
+                    mask_resized = cv2.resize(
+                        mask_np,
+                        (img.shape[1], img.shape[0]),
+                        interpolation=cv2.INTER_NEAREST
+                    )
+
+                    # Binary mask
+                    binary_mask = (mask_resized > 0.5).astype(np.uint8)
+
+                    # Fill mask area with class color on overlay
+                    overlay[binary_mask == 1] = color
+
+                    # Draw mask contour for crisp edges
+                    contours, _ = cv2.findContours(
+                        binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+                    )
+                    cv2.drawContours(img, contours, -1, color, 2)
+
+                    mask_drawn = True
+                except Exception:
+                    pass
+
+            # ── Fallback: draw bounding box if no mask ────────────────────
+            if not mask_drawn:
+                cv2.rectangle(img,
+                             (int(x1), int(y1)),
+                             (int(x2), int(y2)), color, 2)
+
+            # ── Draw label ────────────────────────────────────────────────
+            label     = f"{class_name} {confidence:.2f} [{severity['label']}]"
+            label_x   = int(x1)
+            label_y   = max(int(y1) - 8, 15)
+
+            # Background rectangle for readability
+            (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+            cv2.rectangle(img,
+                         (label_x, label_y - th - 4),
+                         (label_x + tw + 4, label_y + 2),
+                         color, -1)
+
+            # White text on colored background
             cv2.putText(img, label,
-                       (int(x1), int(y1) - 8),
+                       (label_x + 2, label_y - 2),
                        cv2.FONT_HERSHEY_SIMPLEX,
-                       0.45, color, 2)
+                       0.45, (255, 255, 255), 1)
+
+    # ── Blend mask overlay with original image (50% opacity) ──────────────
+    cv2.addWeighted(overlay, 0.4, img, 0.6, 0, img)
 
     # ── Overall Severity ───────────────────────
     overall_severity = _calculate_overall_severity(detections)
